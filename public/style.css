@@ -201,3 +201,11 @@ h3 .more{float:right;font-size:13px;color:var(--acc);font-weight:700}
 .ach .ic{width:44px;height:44px;border-radius:14px;background:var(--card2);display:grid;place-items:center;font-size:22px;flex:none}
 .ach.done .ic{background:linear-gradient(135deg,#ffd76a,#f59e0b)}
 .ach:not(.done){opacity:.55}
+
+/* Mobil: Listenzeilen nie umbrechen */
+.li .info .lbl{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.li .rt{flex:none;max-width:44%}
+.li .rt .good,.li .rt .bad{white-space:nowrap}
+.li .spark{flex:none}
+@media (max-width:420px){.li{gap:10px}.li .ico{width:44px;height:44px}.spark{width:52px;height:30px}.li .rt .v{font-size:15px}}
+@media (max-width:350px){.li .spark{display:none}}

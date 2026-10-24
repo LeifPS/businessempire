@@ -18,7 +18,26 @@ var LIST = [
   { id: 'FRM', name: 'Farmland', sector: 'Agrar', base: 18.9, vol: .10, beta: .20, div: .0068, ico: 'leaf', bg: '#3fae6a' },
   { id: 'BLD', name: 'Bauwerk', sector: 'Bau', base: 72.4, vol: .15, beta: .45, div: .0055, ico: 'hammer', bg: '#e8455a' },
   { id: 'ORB', name: 'Orbital Raumfahrt', sector: 'Raumfahrt', base: 260.0, vol: .42, beta: .90, div: .0004, ico: 'rocket', bg: '#4f46e5' },
-  { id: 'FIT', name: 'FitFuture', sector: 'Freizeit', base: 15.4, vol: .30, beta: .60, div: .0020, ico: 'dumbbell', bg: '#ec4899' }
+  { id: 'FIT', name: 'FitFuture', sector: 'Freizeit', base: 15.4, vol: .30, beta: .60, div: .0020, ico: 'dumbbell', bg: '#ec4899' },
+  { id: 'CHP', name: 'Chipwerk Systems', sector: 'Technik', base: 88.7, vol: .26, beta: .70, div: .0010, ico: 'chip', bg: '#3b82f6' },
+  { id: 'SOL', name: 'Solaris Solar', sector: 'Energie', base: 24.6, vol: .27, beta: .65, div: .0030, ico: 'sun', bg: '#f59e0b' },
+  { id: 'HRT', name: 'Herzblut Klinik', sector: 'Pharma', base: 54.3, vol: .12, beta: .25, div: .0070, ico: 'cross', bg: '#10b981' },
+  { id: 'PLY', name: 'Playbox Studios', sector: 'Medien', base: 31.2, vol: .33, beta: .75, div: .0006, ico: 'pad', bg: '#a78bfa' },
+  { id: 'AMP', name: 'Ampere Mobil', sector: 'Fahrzeuge', base: 69.9, vol: .24, beta: .60, div: .0030, ico: 'bolt', bg: '#f87171' },
+  { id: 'SPK', name: 'Sparkasse Nord', sector: 'Finanzen', base: 38.5, vol: .10, beta: .35, div: .0110, ico: 'bank', bg: '#d4a72c' },
+  { id: 'CRG', name: 'Cargolux Fracht', sector: 'Logistik', base: 52.0, vol: .17, beta: .50, div: .0060, ico: 'truck', bg: '#fb923c' },
+  { id: 'RHN', name: 'Rheinwasser', sector: 'Versorger', base: 63.8, vol: .06, beta: .08, div: .0125, ico: 'drop', bg: '#14b8a6' },
+  { id: 'NET', name: 'Netzwerk Funk', sector: 'Telekom', base: 22.4, vol: .13, beta: .32, div: .0095, ico: 'signal', bg: '#818cf8' },
+  { id: 'BIO', name: 'Biohof Grün', sector: 'Agrar', base: 29.1, vol: .11, beta: .22, div: .0075, ico: 'leaf', bg: '#22c55e' },
+  { id: 'STN', name: 'Steinbau Union', sector: 'Bau', base: 44.0, vol: .14, beta: .42, div: .0065, ico: 'hammer', bg: '#ef4444' },
+  { id: 'LUN', name: 'Lunar Transit', sector: 'Raumfahrt', base: 130.0, vol: .40, beta: .85, div: .0005, ico: 'rocket', bg: '#6366f1' },
+  { id: 'GYM', name: 'Gymwelt Holding', sector: 'Freizeit', base: 26.8, vol: .22, beta: .50, div: .0035, ico: 'dumbbell', bg: '#f472b6' },
+  { id: 'MHL', name: 'Mühle & Söhne', sector: 'Konsum', base: 14.2, vol: .08, beta: .14, div: .0120, ico: 'wheat', bg: '#b9833a' },
+  { id: 'AER', name: 'Aerolinie Nova', sector: 'Luftfahrt', base: 47.5, vol: .30, beta: .80, div: .0020, ico: 'plane', bg: '#0ea5e9' },
+  { id: 'HTL', name: 'Hotelia Resorts', sector: 'Tourismus', base: 76.3, vol: .21, beta: .60, div: .0045, ico: 'hotel', bg: '#06b6d4' },
+  { id: 'AUT', name: 'Autohof Premium', sector: 'Fahrzeuge', base: 118.0, vol: .18, beta: .55, div: .0058, ico: 'car', bg: '#64748b' },
+  { id: 'CLD', name: 'Cloudkern', sector: 'Technik', base: 205.0, vol: .30, beta: .75, div: .0004, ico: 'code', bg: '#2563eb' },
+  { id: 'SNK', name: 'Snackwerk', sector: 'Konsum', base: 9.8, vol: .20, beta: .30, div: .0090, ico: 'burger', bg: '#fb7185' }
 ];
 LIST.forEach(function (a) { a.kind = 'stock'; });
 BE.market.register(LIST);
@@ -49,9 +68,9 @@ function chgHtml(c) {
 function row(a, extra) {
   var c = chg(a), p = ST.pos(a.id), up = c.pct >= 0;
   return '<div class="li tappable" data-act="open" data-v="stock" data-arg="' + a.id + '">' + ico(a) +
-    '<div class="info"><div class="nm">' + a.name + '</div><div class="lbl">' + (p.n ? '<b class="gold">' + BE.nf0.format(p.n) + ' Stück</b> · ' : '') + a.sector + ' · ' + BE.pct(a.div * 100, false) + ' / Std.</div></div>' +
+    '<div class="info"><div class="nm">' + a.name + '</div><div class="lbl">' + (p.n ? '<b class="gold">' + BE.nf0.format(p.n) + ' Stück</b> · ' : '') + a.sector + '</div></div>' +
     BE.market.spark(BE.market.series(a, BE.now(), 86400000, 24), 84, 34, up) +
-    '<div class="rt"><div class="v">' + BE.fmtP(ST.price(a)) + '</div>' + chgHtml(c) + '</div></div>';
+    '<div class="rt"><div class="v">' + BE.fmtP(ST.price(a)) + '</div><div class="' + (up ? 'good' : 'bad') + '" style="font-size:13px;font-weight:700">' + (up ? '▲ ' : '▼ ') + BE.nf2.format(Math.abs(c.pct)) + ' %</div></div></div>';
 }
 
 /* ---------- Aktionen ---------- */
