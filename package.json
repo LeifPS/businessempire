@@ -1,0 +1,13 @@
+{
+  "name": "business-empire",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Business Empire – Idle-Tycoon fürs Handy (Cloudflare Worker + Durable Object)",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy"
+  },
+  "devDependencies": {
+    "wrangler": "^4.0.0"
+  }
+}
