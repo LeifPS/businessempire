@@ -18,8 +18,15 @@ var TYPES = [
   { id: 'space', name: 'Raumfahrt', cost: 3500000, hour: 330000, ico: 'rocket', bg: '#8f7bff' },
   { id: 'bank', name: 'Großbank', cost: 18000000, hour: 1900000, ico: 'bank', bg: '#c9a227' }
 ];
-var BY = {}; TYPES.forEach(function (t) { BY[t.id] = t; });
-var F = BE.firms = { TYPES: TYPES, BY: BY, MAX: MAX_FIRMS, MAXLV: MAX_LV };
+/* Konzerne: entstehen nur durch Fusion bestimmter Unternehmen (need = [Typ, Mindest-Level]) */
+var KONZ = [
+  { id: 'k_mode', name: 'Bekleidungsmarke', cost: 3000000, hour: 42000, ico: 'basket', bg: '#a0306e', need: [['shop', 5], ['ship', 3], ['fab', 6]], fx: 'Verdient dauerhaft 42.000 € pro Stunde und zählt voll zum Vermögen.' },
+  { id: 'k_tech', name: 'Technologiekonzern', cost: 12000000, hour: 170000, ico: 'code', bg: '#4b3fd6', need: [['soft', 5], ['fab', 5], ['hotel', 2]], fx: 'Verdient dauerhaft 170.000 € pro Stunde.' },
+  { id: 'k_raum', name: 'Raumfahrtagentur', cost: 40000000, hour: 2600000, ico: 'rocket', bg: '#1b3fb0', need: [['fab', 8], ['ship', 8], ['space', 3]], fx: 'Verdient dauerhaft 2,6 Mio. € pro Stunde.' },
+  { id: 'k_hold', name: 'Holdinggesellschaft', cost: 250000000, hour: 14500000, ico: 'bank', bg: '#6a4a3a', need: [['bank', 3], ['soft', 6], ['space', 4]], fx: 'Verdient dauerhaft 14,5 Mio. € pro Stunde.' }
+];
+var BY = {}; TYPES.forEach(function (t) { BY[t.id] = t; }); KONZ.forEach(function (t) { t.konz = true; BY[t.id] = t; });
+var F = BE.firms = { TYPES: TYPES, KONZ: KONZ, BY: BY, MAX: MAX_FIRMS, MAXLV: MAX_LV };
 
 F.owned = function (tid) { return S().firms.filter(function (f) { return f.t === tid; }).length; };
 F.price = function (t) { return Math.round(t.cost * Math.pow(1.15, F.owned(t.id))); };
@@ -49,18 +56,30 @@ function perkLine(t) { return '+' + BE.fmt(t.hour * BE.global()) + ' pro Stunde'
 BE.act.firmNew = function (d) {
   var t = BY[d.id], p = F.price(t);
   if (S().firms.length >= MAX_FIRMS) { BE.toast('Du hast bereits ' + MAX_FIRMS + ' Unternehmen. Verkaufe oder fusioniere eines.', true); return false; }
-  BE.sheet('<div class="row" style="justify-content:flex-start;gap:14px;margin-bottom:12px"><div class="ico round" style="width:64px;height:64px">' + BE.art.icon(t.ico, '#fff', t.bg) + '</div>' +
-    '<div><h4 style="margin:0">' + t.name + '</h4><div class="lbl">Level 1 · ' + perkLine(t) + '</div></div></div>' +
-    '<p>Ausbau bis Level ' + MAX_LV + ' möglich (+60 % Einnahmen pro Level). Zwei gleiche Unternehmen kannst du später fusionieren.</p>' +
-    '<div class="btns"><button class="btn ghost" data-act="closeSheet">Abbrechen</button><button class="btn good ' + (S().money >= p ? '' : 'off') + '" data-act="firmBuy" data-id="' + t.id + '">Gründen · ' + BE.fmt(p) + '</button></div>');
+  if (S().money < p) { BE.toast('Nicht genug Geld (' + BE.fmt(p) + ')', true); return false; }
+  BE.askText('Namen des Geschäfts eingeben', t.name + ' gründen für ' + BE.fmt(p) + ' · Level 1 · ' + perkLine(t), t.name, function (v) {
+    v = String(v || '').replace(/[\u0000-\u001f<>]/g, '').trim().slice(0, 24) || t.name;
+    if (S().firms.length >= MAX_FIRMS || !BE.spend(p)) { BE.toast('Nicht genug Geld', true); return; }
+    S().firms.push({ t: t.id, lv: 1, fu: 0, inv: p, n: v });
+    BE.stat('buys'); BE.buzz(12); BE.toast(v + ' gegründet!');
+    BE.dirtyCalc(); BE.save(); if (BE.stack.length) BE.back(); else BE.refresh();
+  });
   return false;
 };
-BE.act.firmBuy = function (d) {
-  var t = BY[d.id], p = F.price(t);
-  if (S().firms.length >= MAX_FIRMS || !BE.spend(p)) { BE.toast('Nicht genug Geld', true); return; }
-  S().firms.push({ t: t.id, lv: 1, fu: 0, inv: p });
-  BE.stat('buys'); BE.buzz(12); BE.closeSheet(); BE.toast(t.name + ' gegründet!');
-  if (BE.stack.length) BE.back();
+BE.act.konzBuild = function (d) {
+  var k = BY[d.id], s = S(); if (!k || !k.konz) return false;
+  var pick = k.need.map(function (r) {
+    var c = s.firms.filter(function (f) { return f.t === r[0] && f.lv >= r[1]; }).sort(function (a, b) { return a.lv - b.lv; })[0]; return c;
+  });
+  if (pick.some(function (x) { return !x; })) { BE.toast('Es fehlen noch Voraussetzungen', true); return false; }
+  if (s.money < k.cost) { BE.toast('Nicht genug Geld (' + BE.fmt(k.cost) + ')', true); return false; }
+  BE.ask(k.name + ' gründen?', 'Die benötigten Unternehmen (' + k.need.length + ') gehen im neuen Konzern auf. Kosten: ' + BE.fmt(k.cost) + '.', 'Fusionieren', function () {
+    if (!BE.spend(k.cost)) return;
+    var inv = k.cost; pick.forEach(function (f) { inv += f.inv; s.firms.splice(s.firms.indexOf(f), 1); });
+    s.firms.push({ t: k.id, lv: 1, fu: 0, inv: inv, n: k.name });
+    BE.stat('fusions'); BE.buzz(30); BE.toast(k.name + ' gegründet!'); BE.dirtyCalc(); BE.refresh(); BE.save();
+  });
+  return false;
 };
 BE.act.firmUp = function (d) {
   var f = S().firms[+d.i]; if (!f || f.lv >= MAX_LV) return false;
@@ -94,10 +113,10 @@ BE.act.fuse = function (d) {
 
 /* ---------- Ansichten ---------- */
 function firmRow(f, i) {
-  var t = BY[f.t], maxed = f.lv >= MAX_LV, c = maxed ? 0 : F.upCost(f);
+  var t = BY[f.t], nm = f.n || t.name, maxed = f.lv >= MAX_LV, c = maxed ? 0 : F.upCost(f);
   return '<div class="card tight"><div class="biz row" style="gap:12px"><div class="ico round">' + BE.art.icon(t.ico, '#fff', t.bg) + '</div>' +
-    '<div style="flex:1;min-width:0"><div style="font-weight:800">' + t.name + ' <span class="pill acc">Lv ' + f.lv + '</span>' + (f.fu ? ' <span class="pill gold">Fusion ×' + f.fu + '</span>' : '') + '</div>' +
-    '<div class="lbl">+' + BE.fmt(F.income(f) * BE.global()) + ' / Std.</div></div></div>' +
+    '<div style="flex:1;min-width:0"><div style="font-weight:800">' + BE.esc(nm) + ' <span class="pill acc">Lv ' + f.lv + '</span>' + (f.fu ? ' <span class="pill gold">Fusion ×' + f.fu + '</span>' : '') + '</div>' +
+    '<div class="lbl">' + (nm !== t.name ? t.name + ' · ' : '') + '+' + BE.fmt(F.income(f) * BE.global()) + ' / Std.</div></div></div>' +
     '<div class="row" style="margin-top:10px;gap:8px">' +
     '<button class="btn sm ghost" data-act="firmSell" data-i="' + i + '">Verkaufen</button>' +
     (maxed ? '<span class="pill gold">Maximal ausgebaut</span>' : '<button class="btn sm ' + (S().money >= c ? 'good' : 'off') + '" data-act="firmUp" data-i="' + i + '" style="flex:1">Ausbauen · ' + BE.fmt(c) + '</button>') + '</div></div>';
@@ -133,7 +152,7 @@ BE.views.newFirm = {
   }
 };
 BE.views.merge = {
-  title: 'Fusionen',
+  title: 'Unternehmensfusionen',
   render: function () {
     var s = S(), groups = {};
     s.firms.forEach(function (f, i) { (groups[f.t] = groups[f.t] || []).push(i); });
@@ -150,7 +169,21 @@ BE.views.merge = {
         '<div class="lbl" style="margin:10px 0">Einnahmen: ' + BE.fmt(before * BE.global()) + ' → <b class="' + (after >= before ? 'good' : 'bad') + '">' + BE.fmt(after * BE.global()) + ' / Std.</b></div>' +
         '<button class="btn full" data-act="fuse" data-a="' + idx[0] + '" data-b="' + idx[1] + '">Fusionieren</button></div>';
     });
-    if (!any) h += '<div class="empty"><div class="e">🤝</div>Noch keine Fusion möglich.<br>Du brauchst zwei Unternehmen derselben Art.</div>';
+    if (!any) h += '<div class="empty" style="padding:14px 0"><div class="e">🤝</div>Noch keine Gleichtyp-Fusion möglich.<br>Du brauchst zwei Unternehmen derselben Art.</div>';
+    h += '<h3 style="margin-top:18px">Konzerne gründen</h3>';
+    KONZ.forEach(function (k) {
+      var ok = true, rows = k.need.map(function (r) {
+        var best = 0; s.firms.forEach(function (f) { if (f.t === r[0] && f.lv > best) best = f.lv; });
+        var met = best >= r[1]; if (!met) ok = false;
+        return '<div class="row" style="padding:7px 0"><div><b>' + BY[r[0]].name + '</b><div class="lbl">Stufe ' + Math.min(best, r[1]) + '/' + r[1] + '</div>' +
+          '<div class="bar" style="margin-top:5px;width:150px"><i style="width:' + Math.min(100, best / r[1] * 100) + '%"></i></div></div><span style="font-size:22px">' + (met ? '✅' : '⬜') + '</span></div>';
+      }).join('');
+      var have = s.firms.some(function (f) { return f.t === k.id; }), afford = s.money >= k.cost;
+      h += '<div class="card"><div class="row" style="justify-content:flex-start;gap:14px;margin-bottom:6px"><div class="ico round" style="width:56px;height:56px">' + BE.art.icon(k.ico, '#fff', k.bg) + '</div><b style="font-size:17px">' + k.name + '</b></div>' +
+        rows + '<div class="row" style="border-top:1px solid var(--line);margin-top:6px;padding-top:10px"><div><div class="lbl">Investition für die Eröffnung</div><b style="font-size:17px">' + BE.fmt(k.cost) + '</b></div><span style="font-size:22px">' + (afford ? '✅' : '⬜') + '</span></div>' +
+        '<details style="margin-top:10px"><summary style="color:var(--acc);font-weight:700;cursor:pointer">ⓘ Mögliche Wirkung</summary><div class="lbl" style="margin-top:8px">' + k.fx + ' Die benötigten Unternehmen gehen dabei auf.</div></details>' +
+        '<button class="btn full ' + (ok && afford ? 'good' : 'off') + '" data-act="konzBuild" data-id="' + k.id + '" style="margin-top:12px">' + (have ? 'Weiteren Konzern gründen' : 'Konzern gründen') + '</button></div>';
+    });
     return h;
   }
 };
